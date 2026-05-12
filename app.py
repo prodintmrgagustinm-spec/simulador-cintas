@@ -18,21 +18,23 @@ with st.sidebar:
     
     for i in range(1, 9):
         with st.expander(f"Tramo {i}"):
-            largo = st.slider(f"Largo (m) - T{i}", 1.0, 20.0, 5.0, key=f"l{i}")[cite: 2]
+            # Configuración de largo, diámetro y reducción
+            largo = st.slider(f"Largo (m) - T{i}", 1.0, 20.0, 5.0, key=f"l{i}")
             d = st.number_input(f"Ø Rodillo (mm) - T{i}", value=150, key=f"d{i}")
             r = st.number_input(f"Reducción (i) - T{i}", value=25.0, key=f"r{i}")
             
+            # Cálculo de velocidad real (m/s)
             v = (3.14159 * (d/1000) * (rpm_motor/r)) / 60
             datos_tramos[i] = {"v": v, "largo": largo}
             largo_total_linea += largo
 
 # --- PANEL DE MÉTRICAS ---
 col1, col2, col3 = st.columns(3)
-col1.metric("Largo Total de Línea", f"{largo_total_linea:.1f} m")[cite: 2]
+col1.metric("Largo Total de Línea", f"{largo_total_linea:.1f} m")
 metrica_total = col2.metric("Total Entregado", "0 bolsas")
 metrica_real = col3.metric("Frecuencia Real", "0.00 bps")
 
-# --- ESTILO CSS DINÁMICO ---
+# --- ESTILO CSS ---
 st.markdown("""
     <style>
     .linea-transporte {
@@ -66,7 +68,8 @@ if st.button("▶️ INICIAR PRODUCCIÓN"):
     
     start_time = time.time()
     
-    for frame in range(800):
+    # Simulación
+    for frame in range(1000):
         tiempo_actual = frame * 0.1
         
         # 1. Entrada de bolsas
@@ -74,21 +77,19 @@ if st.button("▶️ INICIAR PRODUCCIÓN"):
             bolsas_en_linea.append({"dist_recorrida": 0, "entregada": False})
             ultimo_tiempo_bolsa = tiempo_actual
 
-        # 2. Movimiento basado en posición física real (metros)
+        # 2. Movimiento físico real
         for b in bolsas_en_linea:
-            # Determinar en qué tramo está según la distancia recorrida
-            dist_acumulada = 0
+            dist_acum = 0
             tramo_actual = 8
             for i in range(1, 9):
-                dist_acumulada += datos_tramos[i]["largo"]
-                if b["dist_recorrida"] <= dist_acumulada:
+                dist_acum += datos_tramos[i]["largo"]
+                if b["dist_recorrida"] <= dist_acum:
                     tramo_actual = i
                     break
             
             v_tramo = datos_tramos[tramo_actual]["v"]
-            b["dist_recorrida"] += v_tramo * 0.1 # Avanza metros reales
+            b["dist_recorrida"] += v_tramo * 0.1
             
-            # Conteo al final del largo total
             if b["dist_recorrida"] >= largo_total_linea and not b["entregada"]:
                 total_entregadas += 1
                 b["entregada"] = True
@@ -100,17 +101,16 @@ if st.button("▶️ INICIAR PRODUCCIÓN"):
         metrica_total.metric("Total Entregado", f"{total_entregadas} bolsas")
         metrica_real.metric("Frecuencia Real", f"{bps_real:.2f} bps")
 
-        # 4. Renderizado HTML con anchos proporcionales
+        # 4. Renderizado HTML
         html_linea = '<div class="linea-transporte">'
         for i in range(1, 9):
-            ancho_relativo = (datos_tramos[i]["largo"] / largo_total_linea) * 100
-            html_linea += f'<div class="division" style="width: {ancho_relativo}%">T{i} ({datos_tramos[i]["largo"]}m)</div>'
+            ancho_rel = (datos_tramos[i]["largo"] / largo_total_linea) * 100
+            html_linea += f'<div class="division" style="width: {ancho_rel}%">T{i} ({datos_tramos[i]["largo"]}m)</div>'
         
         for b in bolsas_en_linea:
-            # Convertir distancia recorrida a porcentaje visual
-            pos_porcentaje = (b["dist_recorrida"] / largo_total_linea) * 100
-            if pos_porcentaje <= 100:
-                html_linea += f'<div class="bolsa-molino" style="left: {pos_porcentaje}%"></div>'
+            pos_vis = (b["dist_recorrida"] / largo_total_linea) * 100
+            if pos_vis <= 100:
+                html_linea += f'<div class="bolsa-molino" style="left: {pos_vis}%"></div>'
         
         html_linea += '</div>'
         
