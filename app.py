@@ -1,82 +1,105 @@
 import streamlit as st
 import time
-import numpy as np
 
-st.set_page_config(page_title="Ingeniería de Cintas - Molino", layout="wide")
+# Configuración de página
+st.set_page_config(page_title="Animación Línea de Ensacado", layout="wide")
 
-st.title("⚙️ Simulador Técnico de Transporte de Bolsas")
-st.markdown("Cálculo de velocidad tangencial basado en mecánica de transmisión.")
+st.title("🏭 Simulador Animado de Molino: 8 Cintas")
 
 # --- BARRA LATERAL: PARÁMETROS TÉCNICOS ---
 with st.sidebar:
-    st.header("Configuración de Motor")
-    rpm_motor = st.number_input("RPM Nominal del Motor", value=1450)
+    st.header("⚙️ Configuración Mecánica")
+    rpm_motor = st.number_input("RPM Motor", value=1450)
+    ritmo = st.slider("Producción (bolsas/min)", 5, 60, 20)
     
     st.divider()
-    st.subheader("Parámetros por Cinta")
-    
     datos_cintas = {}
     for i in range(1, 9):
-        with st.expander(f"Cinta {i} - Especificaciones"):
-            largo = st.slider(f"Largo (m) - C{i}", 2.0, 30.0, 10.0, key=f"l{i}")
-            diametro_mm = st.number_input(f"Ø Rodillo (mm) - C{i}", value=150, key=f"d{i}")
-            relacion = st.number_input(f"Relación Reductor (i) - C{i}", value=20.0, key=f"r{i}")
+        with st.expander(f"Cinta {i}"):
+            d = st.number_input(f"Ø Rodillo (mm) - C{i}", value=150, key=f"d{i}")
+            r = st.number_input(f"Reducción (i) - C{i}", value=20.0, key=f"r{i}")
+            largo = st.slider(f"Largo (m) - C{i}", 2, 15, 8, key=f"l{i}")
             
-            # Cálculo Físico:
-            # 1. RPM Salida = RPM Motor / Relación
-            rpm_salida = rpm_motor / relacion
-            # 2. Velocidad (m/s) = (Pi * D * RPM) / 60
-            velocidad_ms = (np.pi * (diametro_mm / 1000) * rpm_salida) / 60
-            
-            datos_cintas[i] = {
-                "largo": largo,
-                "v": velocidad_ms,
-                "rpm_s": rpm_salida
-            }
-            st.caption(f"Velocidad Resultante: {velocidad_ms:.3f} m/s")
+            # Cálculo de velocidad real
+            v = (3.14159 * (d/1000) * (rpm_motor/r)) / 60
+            datos_cintas[i] = {"v": v, "largo": largo}
 
-# --- PANEL DE DATOS TÉCNICOS ---
-st.subheader("📋 Resumen de Cálculo Mecánico")
-df_data = []
-for i in range(1, 9):
-    df_data.append({
-        "Cinta": i,
-        "Velocidad (m/s)": f"{datos_cintas[i]['v']:.3f}",
-        "Largo (m)": datos_cintas[i]['largo'],
-        "RPM Rodillo": f"{datos_cintas[i]['rpm_s']:.1f}",
-        "Tiempo Tránsito (s)": f"{(datos_cintas[i]['largo'] / datos_cintas[i]['v']):.1f}"
-    })
-st.table(df_data)
+# --- ESTILO CSS PARA LAS BOLSAS ---
+st.markdown("""
+    <style>
+    .cinta-container {
+        background-color: #333;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        padding: 5px;
+        position: relative;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        border: 2px solid #555;
+    }
+    .bolsa {
+        font-size: 25px;
+        position: absolute;
+        transition: left 0.1s linear;
+    }
+    .etiqueta-cinta {
+        color: white;
+        font-family: monospace;
+        font-weight: bold;
+        margin-right: 15px;
+        z-index: 10;
+        background: #222;
+        padding: 2px 8px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- SIMULACIÓN VISUAL ---
-st.subheader("🚚 Flujo de Bolsas en Tiempo Real")
-ritmo = st.slider("Ritmo de Producción (bolsas/min)", 5, 60, 20)
-intervalo = 60 / ritmo
-
-contenedores = [st.empty() for _ in range(8)]
-
-if st.button("▶️ Iniciar Simulación Física"):
-    # Cada cinta tiene una resolución de 1 metro por carácter
-    lineas = [["—"] * int(datos_cintas[i]['largo']) for i in range(1, 9)]
+# --- ESPACIO DE ANIMACIÓN ---
+st.subheader("Simulación en Vivo")
+if st.button("▶️ INICIAR PROCESO DE ENSACADO"):
+    # Estado de las bolsas: cada elemento es [pos_x_pixel, cinta_actual]
+    bolsas_activas = []
+    frames = 150 # Duración de la simulación
+    intervalo_bolsa = 60 / ritmo
+    ultimo_tiempo_bolsa = 0
     
-    for t in range(300):
-        # Lógica de transferencia (de 8 a 1)
-        for n in range(7, 0, -1):
-            # Movemos según la velocidad calculada de cada cinta
-            if t % max(1, int(1 / (datos_cintas[n+1]['v'] + 0.1))) == 0:
-                trans = lineas[n-1][-1]
-                lineas[n] = [trans] + lineas[n][:-1]
-                lineas[n-1][-1] = "—"
+    # Placeholders para las 8 cintas
+    slots = [st.empty() for _ in range(8)]
+    
+    # Bucle de animación
+    for t in range(frames):
+        # 1. Generar nueva bolsa en Cinta 1
+        tiempo_actual = t * 0.2
+        if tiempo_actual - ultimo_tiempo_bolsa >= intervalo_bolsa:
+            bolsas_activas.append({"x": 0, "cinta": 1})
+            ultimo_tiempo_bolsa = tiempo_actual
 
-        # Cinta 1 y entrada de bolsas
-        if t % max(1, int(1 / (datos_cintas[1]['v'] + 0.1))) == 0:
-            lineas[0] = ["—"] + lineas[0][:-1]
-            if (t * 0.2) % intervalo < 0.2:
-                lineas[0][0] = "📦"
+        # 2. Actualizar posiciones
+        for b in bolsas_activas:
+            c_idx = b["cinta"]
+            v_cinta = datos_cintas[c_idx]["v"]
+            # Movimiento: velocidad * factor de escala para píxeles
+            b["x"] += v_cinta * 15 
+            
+            # Transferencia a la siguiente cinta
+            if b["x"] > 90: # Si llega al final (90% del ancho)
+                if c_idx < 8:
+                    b["cinta"] += 1
+                    b["x"] = 0 # Reinicia al inicio de la siguiente cinta
+                else:
+                    b["x"] = 200 # Sacar de pantalla (bolsa entregada)
 
-        # Dibujar
-        for idx, cont in enumerate(contenedores):
-            visual = "".join(lineas[idx])
-            cont.code(f"C{idx+1} ({datos_cintas[idx+1]['v']:.2f} m/s) |{visual}|")
-        
+        # 3. Dibujar las 8 cintas
+        for i in range(1, 9):
+            html_cinta = f'<div class="cinta-container"><span class="etiqueta-cinta">CINTA {i} ({datos_cintas[i]["v"]:.2f} m/s)</span>'
+            for b in bolsas_activas:
+                if b["cinta"] == i and b["x"] <= 100:
+                    html_cinta += f'<div class="bolsa" style="left: {b["x"]}%">📦</div>'
+            html_cinta += '</div>'
+            slots[i-1].markdown(html_cinta, unsafe_allow_html=True)
+            
         time.sleep(0.1)
+
+    st.success("Simulación finalizada.")
