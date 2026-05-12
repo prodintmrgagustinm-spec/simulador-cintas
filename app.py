@@ -12,7 +12,7 @@ with st.sidebar:
     ritmo = st.slider("Ritmo de Ensacado (bolsas/min)", 5, 120, 30)
     
     # Cálculo de bolsas por segundo
-    bolsas_seg_teorico = ritmo / 60[cite: 2]
+    bolsas_seg_teorico = ritmo / 60
     
     st.divider()
     st.subheader("Parámetros por Tramo")
@@ -26,7 +26,7 @@ with st.sidebar:
 
 # --- PANEL DE MÉTRICAS EN VIVO ---
 col1, col2, col3 = st.columns(3)
-metrica_bps = col1.metric("Entrega Teórica", f"{bolsas_seg_teorico:.2f} bolsas/seg")[cite: 2]
+metrica_bps = col1.metric("Entrega Teórica", f"{bolsas_seg_teorico:.2f} bolsas/seg")
 metrica_total = col2.metric("Total Entregado", "0 bolsas")
 metrica_real = col3.metric("Frecuencia Real (Salida)", "0.00 bps")
 
@@ -59,12 +59,13 @@ animacion_placeholder = st.empty()
 if st.button("▶️ INICIAR PRODUCCIÓN"):
     bolsas_en_linea = []
     total_entregadas = 0
-    intervalo_bolsa = 60 / ritmo[cite: 2]
+    intervalo_bolsa = 60 / ritmo
     ultimo_tiempo_bolsa = -intervalo_bolsa
     
     start_time = time.time()
     
-    for frame in range(500):
+    # Duración de la simulación
+    for frame in range(600):
         tiempo_actual = frame * 0.1
         
         # 1. Entrada de bolsas
@@ -72,13 +73,14 @@ if st.button("▶️ INICIAR PRODUCCIÓN"):
             bolsas_en_linea.append({"x": 0, "entregada": False})
             ultimo_tiempo_bolsa = tiempo_actual
 
-        # 2. Movimiento
+        # 2. Movimiento por tramos
         for b in bolsas_en_linea:
             tramo = min(int(b["x"] / 12.5) + 1, 8)
             v_tramo = datos_cintas[tramo]["v"]
+            # Ajuste de velocidad para la animación
             b["x"] += v_tramo * 0.8
             
-            # Conteo al final de la línea (100%)
+            # Conteo al final de la línea (100% o Tramo 8)
             if b["x"] >= 100 and not b["entregada"]:
                 total_entregadas += 1
                 b["entregada"] = True
@@ -86,15 +88,15 @@ if st.button("▶️ INICIAR PRODUCCIÓN"):
         # 3. Limpieza y actualización de métricas
         bolsas_en_linea = [b for b in bolsas_en_linea if b["x"] < 105]
         
-        # Calcular bolsas por segundo reales (Total / Tiempo transcurrido)
         bps_real = total_entregadas / max(0.1, tiempo_actual)
         
         metrica_total.metric("Total Entregado", f"{total_entregadas} bolsas")
         metrica_real.metric("Frecuencia Real (Salida)", f"{bps_real:.2f} bps")
 
-        # 4. Renderizado
+        # 4. Renderizado HTML
         html_linea = '<div class="linea-transporte">'
-        for i in range(1, 9): html_linea += f'<div class="division">TRAMO {i}</div>'
+        for i in range(1, 9): 
+            html_linea += f'<div class="division">TRAMO {i}</div>'
         for b in bolsas_en_linea:
             if b["x"] <= 100:
                 html_linea += f'<div class="bolsa-molino" style="left: {b["x"]}%"></div>'
